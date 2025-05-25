@@ -75,14 +75,14 @@ class NotificationWorkerTest {
         verify(subscriptionRepository).getSubscriptionsExpiringBetween(
             argThat { date -> 
                 // 今日の日付であることを確認（時間の差は1分以内）
-                Math.abs(date.time - Date().time) < 60000
+                Math.abs(date.time - Date().time) < TIME_TOLERANCE_MS
             },
             argThat { date ->
                 // 7日後の日付であることを確認（時間の差は1分以内）
                 val expectedDate = Calendar.getInstance().apply { 
                     add(Calendar.DAY_OF_MONTH, 7) 
                 }.time
-                Math.abs(date.time - expectedDate.time) < 60000
+                Math.abs(date.time - expectedDate.time) < TIME_TOLERANCE_MS
             }
         )
     }
