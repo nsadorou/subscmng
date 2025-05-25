@@ -108,9 +108,9 @@ lint-results.xml
 # WorkManager
 work-database*
 
-# Local unit test files
-/app/src/test/
-/app/src/androidTest/
+# Local unit test files (keep test source files but ignore test outputs)
+# /app/src/test/
+# /app/src/androidTest/
 
 # Temporary files
 *.tmp
