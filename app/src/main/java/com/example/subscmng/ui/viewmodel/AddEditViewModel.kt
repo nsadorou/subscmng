@@ -2,9 +2,11 @@ package com.example.subscmng.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.subscmng.data.entity.Currency
 import com.example.subscmng.data.entity.PaymentCycle
 import com.example.subscmng.data.entity.Subscription
 import com.example.subscmng.data.repository.SubscriptionRepository
+import com.example.subscmng.data.service.ExchangeRateService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +17,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AddEditViewModel @Inject constructor(
-    private val subscriptionRepository: SubscriptionRepository
+    private val subscriptionRepository: SubscriptionRepository,
+    private val exchangeRateService: ExchangeRateService
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(AddEditUiState())
@@ -31,6 +34,7 @@ class AddEditViewModel @Inject constructor(
                     id = it.id,
                     serviceName = it.serviceName,
                     amount = it.amount.toString(),
+                    currency = Currency.values().find { curr -> curr.code == it.currency } ?: Currency.JPY,
                     paymentCycle = it.paymentCycle,
                     paymentDay = it.paymentDay,
                     expirationDate = it.expirationDate,
@@ -47,6 +51,10 @@ class AddEditViewModel @Inject constructor(
     
     fun updateAmount(amount: String) {
         _uiState.value = _uiState.value.copy(amount = amount)
+    }
+    
+    fun updateCurrency(currency: Currency) {
+        _uiState.value = _uiState.value.copy(currency = currency)
     }
     
     fun updatePaymentCycle(cycle: PaymentCycle) {
@@ -73,18 +81,36 @@ class AddEditViewModel @Inject constructor(
             return
         }
         
-        val amount = state.amount.toDoubleOrNull()
-        if (amount == null || amount <= 0) {
+        val inputAmount = state.amount.toDoubleOrNull()
+        if (inputAmount == null || inputAmount <= 0) {
             _uiState.value = state.copy(errorMessage = "正しい金額を入力してください")
             return
         }
         
         viewModelScope.launch {
             try {
+                // Convert USD to JPY if needed
+                val (finalAmount, finalCurrency) = if (state.currency == Currency.USD) {
+                    val exchangeResult = exchangeRateService.getUsdToJpyRate()
+                    exchangeResult.fold(
+                        onSuccess = { rate ->
+                            val jpyAmount = exchangeRateService.convertUsdToJpy(inputAmount, rate)
+                            Pair(jpyAmount, "JPY")
+                        },
+                        onFailure = {
+                            _uiState.value = state.copy(errorMessage = "為替レートの取得に失敗しました")
+                            return@launch
+                        }
+                    )
+                } else {
+                    Pair(inputAmount, state.currency.code)
+                }
+                
                 val subscription = Subscription(
                     id = state.id,
                     serviceName = state.serviceName,
-                    amount = amount,
+                    amount = finalAmount,
+                    currency = finalCurrency,
                     paymentCycle = state.paymentCycle,
                     paymentDay = state.paymentDay,
                     expirationDate = state.expirationDate,
@@ -114,6 +140,7 @@ data class AddEditUiState(
     val id: Long = 0L,
     val serviceName: String = "",
     val amount: String = "",
+    val currency: Currency = Currency.JPY,
     val paymentCycle: PaymentCycle = PaymentCycle.MONTHLY,
     val paymentDay: Int = 1,
     val expirationDate: Date? = null,

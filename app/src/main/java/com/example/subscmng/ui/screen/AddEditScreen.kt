@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.subscmng.data.entity.Currency
 import com.example.subscmng.data.entity.PaymentCycle
 import com.example.subscmng.ui.viewmodel.AddEditViewModel
 import java.text.SimpleDateFormat
@@ -84,6 +85,34 @@ fun AddEditScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
+            
+            // 通貨
+            Text(
+                text = "通貨",
+                style = MaterialTheme.typography.titleMedium
+            )
+            
+            Currency.values().forEach { currency ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = uiState.currency == currency,
+                            onClick = { viewModel.updateCurrency(currency) }
+                        )
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = uiState.currency == currency,
+                        onClick = { viewModel.updateCurrency(currency) }
+                    )
+                    Text(
+                        text = currency.displayName,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
             
             // 支払いサイクル
             Text(
