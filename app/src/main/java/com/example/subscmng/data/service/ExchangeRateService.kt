@@ -7,20 +7,26 @@ import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 @Singleton
 class ExchangeRateService @Inject constructor() {
     
-    private var cachedRate: Double? = null
-    private var lastFetchTime: Long = 0
-    private val cacheValidityMillis = 60 * 60 * 1000 // 1 hour
+    companion object {
+        private const val CACHE_VALIDITY_MILLIS = 60 * 60 * 1000L // 1 hour
+        private const val DEFAULT_FALLBACK_RATE = 150.0 // USD to JPY fallback rate
+    }
+    
+    private val cachedRate = AtomicReference<Double?>(null)
+    private val lastFetchTime = AtomicLong(0L)
     
     suspend fun getUsdToJpyRate(): Result<Double> = withContext(Dispatchers.IO) {
         try {
             // Use cached rate if it's still valid
             val currentTime = System.currentTimeMillis()
-            cachedRate?.let { rate ->
-                if (currentTime - lastFetchTime < cacheValidityMillis) {
+            cachedRate.get()?.let { rate ->
+                if (currentTime - lastFetchTime.get() < CACHE_VALIDITY_MILLIS) {
                     return@withContext Result.success(rate)
                 }
             }
@@ -39,21 +45,21 @@ class ExchangeRateService @Inject constructor() {
                 val jpyRate = rates.getDouble("JPY")
                 
                 // Update cache
-                cachedRate = jpyRate
-                lastFetchTime = currentTime
+                cachedRate.set(jpyRate)
+                lastFetchTime.set(currentTime)
                 
                 Result.success(jpyRate)
             } else {
                 // Fallback to cached rate if available, otherwise use default
-                cachedRate?.let { 
+                cachedRate.get()?.let { 
                     Result.success(it) 
-                } ?: Result.success(150.0) // Fallback rate
+                } ?: Result.success(DEFAULT_FALLBACK_RATE)
             }
         } catch (e: Exception) {
             // Return cached rate if available, otherwise use fallback
-            cachedRate?.let { 
+            cachedRate.get()?.let { 
                 Result.success(it) 
-            } ?: Result.success(150.0) // Fallback rate when no network
+            } ?: Result.success(DEFAULT_FALLBACK_RATE)
         }
     }
     
